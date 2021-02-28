@@ -4,6 +4,8 @@ from urllib.parse import urljoin
 import requests
 import bs4
 import pymongo
+import time
+from dateutil.relativedelta import relativedelta
 
 
 MONTHS = {
@@ -30,8 +32,17 @@ class MagnitParse:
         self.collection = self.db["magnit_products"]
 
     def _get_response(self, url):
-        # TODO: написать обработку ошибки
-        return requests.get(url)
+        counter = 0
+        while True:
+            response = requests.get(url)
+            if response.status_code == 200:
+                return response
+            time.sleep(0.5)
+            if counter == 5:
+                raise Exception("Нет соединения")
+            counter += 1
+
+        return response
 
     def _get_soup(self, url):
         response = self._get_response(url)
@@ -80,7 +91,10 @@ class MagnitParse:
                     month=MONTHS[temp_date[1][:3]],
                 )
             )
-        # FIXME: Сделать корректную обработку смены года
+
+        if result[0] > result[1]:
+            result[1] += relativedelta(years=+1)
+
         return result
 
     def _parse(self, product_a) -> dict:
